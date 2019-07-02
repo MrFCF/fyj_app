@@ -6,17 +6,17 @@
 			<div class="logo_warp">
 				<div class="logo_box"></div>				
 			</div>
-			<div class="input_group" :class="{active: act_index===1}">
+			<div class="input_group" :class="{active: act_index===1,error:errors.has('cno')}">
 				<label for="cm_code">公司编号</label>
-				<input @focus="act_index=1" type="number" id="cm_code" v-model="cm_code"/>
+				<input name="cno" v-validate="{required:true,max:6,min:4}" @focus="act_index=1" type="number" id="cm_code" v-model="login.cm_code"/>
 			</div>
-			<div class="input_group" :class="{active: act_index===2}">
+			<div class="input_group" :class="{active: act_index===2,error:errors.has('pno')}">
 				<label for="PNO">员工编号</label>
-				<input @focus="act_index=2" type="number" id="PNO" v-model="PNO"/>
+				<input name="pno" v-validate="{required:true,max:12,min:4}" @focus="act_index=2"  type="number" id="PNO" v-model="login.PNO"/>
 			</div>
-			<div class="input_group" :class="{active: act_index===3}">
+			<div class="input_group" :class="{active: act_index===3,error:errors.has('pwd')}">
 				<label for="Passwd">登录密码</label>
-				<input @focus="act_index=3" type="password" id="passwd" v-model="passwd"/>
+				<input name="pwd" v-validate="{required:true,max:12,min:4}" @focus="act_index=3" type="password" id="passwd" v-model="login.passwd"/>
 			</div>
 			<div class="ck-row">
 				<div class="ckbox_wrap" @click="remebeSet" :class="{'active':remebe}">
@@ -29,24 +29,49 @@
 				</div>
 			</div>
 		</div>
+		<div class="btn_warp" @click="loginBtnClick">
+			<p>登录</p>
+		</div>
 	</div>
 </template>
 
 <script>
 	import "../assets/font/iconfont.css"
+	import { Indicator } from 'mint-ui'
+	import { loginPost } from '../service/index'
+	import { mapMutations } from 'vuex'
 	export default{
 		name:'login',
 		data(){
 			return{
+				login:{
+					cm_code:'',
+					PNO:'',
+					passwd:''
+				},
 				act_index:1,
-				cm_code:'',
-				PNO:'',
-				passwd:'',
 				remebe:false,
 				auto_login:false
 			}
 		},
+		mounted(){
+			let data = JSON.parse(localStorage.getItem("Login_data"));
+			if(data){
+				this.login.cm_code = data.cm_code
+				this.login.PNO = data.PNO
+				this.login.passwd = data.passwd
+				this.remebe = data.remebe
+				this.auto_login = data.auto_login
+			}
+			// 强制执行校验
+			this.$validator.validate();
+			// 自动登录
+			if(this.auto_login){
+				this.loginBtnClick();
+			}
+		},
 		methods:{
+			...mapMutations(["initUser"]),
 			autoLoginSet(){
 //				设置当前的auto_login为true或false
 				this.auto_login = !this.auto_login
@@ -57,6 +82,38 @@
 				this.remebe = !this.remebe
 //				如果this.remebe 为false 设置this.auto_login为false
 				this.remebe || (this.auto_login = false)
+			},
+			loginBtnClick(){
+				//this.errors.any();  boolean 如果有错误返回ture
+				if(this.errors.any()){
+					return;
+				}
+				// 弹出等待的遮罩层，防止二次点击
+				Indicator.open('正在登陆...');
+				// 发送ajax请求 
+				loginPost(this.login).then(res =>{
+						// 将用户信息存储到sessionStorage
+						sessionStorage.setItem("LoginUser",JSON.stringify(res.data.user));
+						sessionStorage.setItem("LoginToken",res.data.token	);
+						// 记住用户密码
+						localStorage.setItem("Login_data",JSON.stringify({
+							remebe:this.remebe,
+							auto_login:this.auto_login,
+							PNO:this.remebe ? this.login.PNO : "",
+							cm_code:this.remebe ? this.login.cm_code : "",
+							passwd:this.remebe ? this.login.passwd : ""
+						}));
+						// 把当前的登陆的用户信息放到vuex
+						// this.$store.commit('initUser', res.data.user);
+						// 将 `this.initUser()` 映射为 `this.$store.commit('initUser')`
+						this.initUser(res.data.user)
+						// 跳转到主页
+						this.$router.push("/home");
+						// 关闭遮罩层
+						Indicator.close();
+				}).then(err =>{
+						console.log('登录失败')
+				})
 			}
 		}
 	}
@@ -72,7 +129,7 @@
 	h1{
 		text-align: center;
 		font-size: px2rem(36);
-		height: px2rem(36);
+		height: px2rem(36); 
 		padding: px2rem(148-36-44) 0 px2rem(44) 0;
 		line-height: px2rem(36);
 		color: #fff;
@@ -88,15 +145,17 @@
 			margin: 0 auto;
 			border-radius:px2rem(18) px2rem(18) 0 0;
 		}
-		.login_box{
+		@mixin login_warp(){
 			width: px2rem(600);
-			height: px2rem(836);
 			background-color: #FFFFFF;
 			border-radius: px2rem(20);
 			margin: 0 auto;
+		}
+		.login_box{ 
+			height: px2rem(836);
+			@include login_warp();
 			.logo_warp{
 				padding: px2rem(80) 0;
-				
 				.logo_box{
 					width: px2rem(190);
 					height: px2rem(190);
@@ -130,6 +189,10 @@
 				color: $act-color;
 				border: 2px solid $act-color;
 			}
+			.input_group.error{
+				color: red;
+				border: 2px solid red;
+			}
 			.ck-row{
 				font-size: $text-size;
 				@include rowStyle();
@@ -149,6 +212,17 @@
 			.ckbox_wrap.active{
 				color: $act-color;
 			}
+		}
+		.btn_warp{
+			@include login_warp();
+			height: px2rem(100);
+			text-align: center;
+			line-height: px2rem(100);
+			color: $act-color;
+			font-size: $text-size-imp;
+			margin-top: px2rem(20);
+			font-weight: 700;
+			letter-spacing: px2rem(10);
 		}
 	}
 </style>

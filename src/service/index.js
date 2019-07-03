@@ -31,7 +31,7 @@ export function getUserProgress(data){
 }
 // 退出登录
 export function logout(data){
-	// 当我退出登录时删除拦截器;
+	// 当我退出登录时删除拦截器;	
 	axios.interceptors.request.eject(axiosIns);
 }
 

@@ -111,7 +111,7 @@
 						this.$router.push("/home");
 						// 关闭遮罩层
 						Indicator.close();
-				}).then(err =>{
+				}).catch(err =>{
 						console.log('登录失败')
 				})
 			}
